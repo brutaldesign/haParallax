@@ -1,6 +1,39 @@
+// http://paulirish.com/2011/requestanimationframe-for-smart-animating/
+// http://my.opera.com/emoller/blog/2011/12/20/requestanimationframe-for-smart-er-animating
+
+// requestAnimationFrame polyfill by Erik MÃ¶ller. fixes from Paul Irish and Tino Zijdel
+
+// MIT license
+( function() {
+	var lastTime = 0,
+		vendors = ['ms', 'moz', 'webkit', 'o'],
+		currTime, timeToCall, id, x;
+	for( x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+		window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+		window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame'] || window[vendors[x]+'CancelRequestAnimationFrame'];
+	}
+	/* jshint unused:false */
+	if (!window.requestAnimationFrame) {
+		window.requestAnimationFrame = function(callback, element) {
+			currTime = new Date().getTime();
+			timeToCall = Math.max(0, 16 - (currTime - lastTime));
+			id = window.setTimeout(function() { callback(currTime + timeToCall); },
+			timeToCall);
+			lastTime = currTime + timeToCall;
+			return id;
+		};
+	}
+
+	if (!window.cancelAnimationFrame) {
+		window.cancelAnimationFrame = function(id) {
+			clearTimeout(id);
+		};
+	}
+}() );
+
 /*!
 Plugin: jQuery Hardware Acceleration Parallax
-Version 1.0.0
+Version 1.0.1
 Author: Constantin Saguin
 Twitter: @brutaldesign
 Author URL: http://csag.co
@@ -31,18 +64,18 @@ http://www.gnu.org/licenses/gpl.html
 	 * Avoid Plugin.prototype conflicts
 	 */
 	$.extend( Plugin.prototype, {
-		
+
 		/**
 		 * Initialize plugin
 		 */
 		init : function () {
-			
+
 			var _this = this;
 
 			this.build( this.element, this.settings );
 			_this.update( $( window ).scrollTop() );
 			_this.imgStretch();
-			
+
 			/**
 			 * Resize event
 			 */
@@ -73,18 +106,18 @@ http://www.gnu.org/licenses/gpl.html
 			if ( ! $( this.element ).css( 'background-image' ) ) {
 				return;
 			}
-				
+
 			var scrollTop = $( window ).scrollTop(),
 				$section = $( this.element ),
 				index = $section.index(),
 				sectionHeight = $section.outerHeight() + 1,
 				offsetTop = $section.offset().top - scrollTop,
-				bg = $section.css( 'background-image' ).replace( 'url(','' ).replace( ')','' ),
-				$holder = $( '<div style="z-index:0;width:100%;top: 0;position:fixed;overflow:hidden;" class="parallax-bg" data-bg="' + index + '"><img style="max-width: none;width:100%;height:auto;position: fixed;top:0;left:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;" id="parallax-bg-img-' + index + '" src="' + bg + '"></div>' );
-			
+				bg = $section.css( 'background-image' ).replace( 'url(','' ).replace( ')','' ).replace( '"','' ),
+				$holder = $( '<div style="z-index:0;width:100%;top: 0;position:fixed;overflow:hidden;" class="parallax-bg" data-holder-index="' + index + '"><img style="max-width: none;width:100%;height:auto;position: fixed;top:0;left:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;" id="parallax-bg-img-' + index + '" src="' + bg + '"></div>' );
+
 			$( 'body' ).prepend( $holder );
-			$section.attr( 'data-holder', index );
-			$section.attr( 'data-top', $section.offset().top );
+			$section.attr( 'data-section-index', index );
+			$section.attr( 'data-top', Math.floor( $section.offset().top ) );
 			$section.css( { 'background' : 'none' } );
 
 			$holder.css( {
@@ -99,15 +132,15 @@ http://www.gnu.org/licenses/gpl.html
 		 */
 		update : function ( scrollTop ) {
 			var $section = $( this.element ),
-				index = $section.data( 'holder' ),
-				$holder = $( '.parallax-bg[data-bg="' + index + '"]' ),
+				index = $section.data( 'section-index' ),
+				$holder = $( '.parallax-bg[data-holder-index="' + index + '"]' ),
 				windowHeight = $( window ).height(),
-				sectionHeight = $section.outerHeight() + 1,
+				sectionHeight = $section.height() + 1,
 				offsetTop = $section.offset().top - scrollTop;
 
-			if ( ( scrollTop > $section.offset().top + sectionHeight ) || ( scrollTop + windowHeight < offsetTop ) ) {
-				return;
-			}
+			//if ( ( scrollTop > $section.offset().top + sectionHeight ) || ( scrollTop + windowHeight < offsetTop ) ) {
+			//	return;
+			//}
 
 			$holder.css( {
 				'height' : sectionHeight,
@@ -122,8 +155,8 @@ http://www.gnu.org/licenses/gpl.html
 		imgStretch : function () {
 			var windowWidth = $( window ).width(),
 				$section = $( this.element ),
-				index = $section.data( 'holder' ),
-				$img = $( '.parallax-bg[data-bg="' + index + '"]' ).find( 'img' ),
+				index = $section.data( 'section-index' ),
+				$img = $( '.parallax-bg[data-holder-index="' + index + '"]' ).find( 'img' ),
 				originImgWidth = $img.data( 'width' ),
 				newCss;
 
@@ -148,11 +181,11 @@ http://www.gnu.org/licenses/gpl.html
 		translate : function ( scrollTop ) {
 			var windowHeight = $( window ).height(),
 				$section = $( this.element ),
-				index = $section.data( 'holder' ),
+				index = $section.data( 'section-index' ),
 				sectionHeight = $section.outerHeight(),
 				offsetTop = $section.offset().top,
 				speedFactor = ( $section.data( 'parallax-speed' ) || this.settings.speedFactor ) / 10,
-				$holderImg = $( '.parallax-bg[data-bg="' + index + '"]' ).find( 'img' ),
+				$holderImg = $( '.parallax-bg[data-holder-index="' + index + '"]' ).find( 'img' ),
 				doPos;
 
 			if ( ( scrollTop > offsetTop + sectionHeight ) || ( scrollTop + windowHeight < offsetTop ) ) {
@@ -172,13 +205,13 @@ http://www.gnu.org/licenses/gpl.html
 		 */
 		setNaturalImgDimensionsData : function () {
 			var $section = $( this.element ),
-				index = $section.data( 'holder' ),
-				$holder = $( '.parallax-bg[data-bg="' + index + '"]' ),
+				index = $section.data( 'section-index' ),
+				$holder = $( '.parallax-bg[data-holder-index="' + index + '"]' ),
 				imgId = $holder.find( 'img' ).attr( 'id' ),
 				image = document.getElementById( imgId ),
 				width = image.naturalWidth,
 				height = image.naturalHeight;
-				
+
 			$holder.find( 'img' ).attr( 'data-width', width );
 			$holder.find( 'img' ).attr( 'data-height', height );
 		}
